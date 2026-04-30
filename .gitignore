@@ -1,0 +1,23 @@
+# Large data files — do not upload to GitHub
+data/raw/
+data/frames/
+data/augmented/
+*.MP4
+*.mp4
+*.jpg
+*.jpeg
+
+# Model checkpoints — too large for GitHub
+models/
+*.pth
+
+# Result figures — generated files
+results/figures/
+
+# Python cache
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Colab
+.virtual_documents/  
