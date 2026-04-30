@@ -1,0 +1,2 @@
+experiment,date,model,temporal_modeling,augmentation,transfer_learning,train_signers,val_signers,num_classes,frame_used,batch_size,learning_rate,best_val_acc,epochs_run,notes
+02_baseline_cnn,2026-04-15 07:43,VGG16 frozen + FC head,False,False,ImageNet pretrained (frozen backbone),00-15,16-19,77,middle (index 8),32,0.001,6.98,31,Single frame only. Naive baseline — no temporal modeling.
