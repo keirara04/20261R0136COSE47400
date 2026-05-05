@@ -184,8 +184,8 @@ LRCN + augmentation + transfer learning together. Expected to achieve the highes
 | Model | Temporal (LSTM) | Augmentation | Transfer Learning | Val Accuracy |
 |---|---|---|---|---|
 | Simple CNN (ours) | ✗ | ✗ | ✗ | **6.98%** |
-| LRCN baseline | ✓ | ✗ | ✗ | TBD |
-| LRCN + augmentation | ✓ | ✓ | ✗ | TBD |
+| LRCN baseline | ✓ | ✗ | ✗ | **8.53** |
+| LRCN + augmentation | ✓ | ✓ | ✗ | **5.43** |
 | LRCN + transfer learning | ✓ | ✗ | ✓ | TBD |
 | LRCN + aug + transfer (best) | ✓ | ✓ | ✓ | TBD |
 | Shin et al. 2023 (reference) | ✓ | — | — | **89.00%** |
