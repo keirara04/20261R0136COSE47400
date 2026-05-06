@@ -1,0 +1,4 @@
+experiment,date,model,temporal_modeling,augmentation,transfer_learning,train_signers,val_signers,num_classes,frames_per_clip,batch_size,learning_rate,best_val_acc,epochs_run,notes
+03_lrcn,2026-05-01 09:20,"VGG16 frozen + LSTM (h=256, layers=1)",True,False,ImageNet pretrained (frozen backbone),00-15,16-19,77,16,8,0.001,1.94,18,"LRCN baseline. No augmentation, no fine-tuning. CNN frozen — isolates LSTM contribution."
+03_lrcn,2026-05-01 11:05,"VGG16 frozen + LSTM (h=256, layers=1)",True,False,ImageNet pretrained (frozen backbone),00-15,16-19,77,16,8,0.001,8.53,41,"LRCN baseline. No augmentation, no fine-tuning. CNN frozen — isolates LSTM contribution."
+03_lrcn,2026-05-02 11:25,"VGG16 frozen + LSTM (h=256, layers=1)",True,False,ImageNet pretrained (frozen backbone),00-15,16-19,77,16,8,0.001,8.14,43,"LRCN baseline. No augmentation, no fine-tuning. CNN frozen — isolates LSTM contribution."

@@ -1,0 +1,5 @@
+experiment,date,model,temporal_modeling,augmentation,transfer_learning,aug_flip,aug_rotation,aug_brightness,aug_speed_min,aug_speed_max,train_signers,val_signers,lstm_hidden,batch_size,learning_rate,best_val_acc,lrcn_baseline_acc,delta_from_lrcn,epochs_run,notes
+04_lrcn_augmentation,2026-05-05 16:18,LRCN (VGG16 frozen + LSTM) + Augmentation,True,True,False,True,15,0.3,0.8,1.2,00-15,16-19,256,8,0.0001,5.43,8.53,-3.1,36,LRCN + spatial + temporal aug. Compare vs 03 (8.53%).
+04_lrcn_augmentation,2026-05-05 16:18,LRCN (VGG16 frozen + LSTM) + Augmentation,True,True,False,True,15,0.3,0.8,1.2,00-15,16-19,256,8,0.0001,5.43,8.53,-2.71,36,LRCN + spatial + temporal aug. Compare vs 03 (8.53%).
+04_lrcn_augmentation,2026-05-05 16:19,LRCN (VGG16 frozen + LSTM) + Augmentation,True,True,False,True,15,0.3,0.8,1.2,00-15,16-19,256,8,0.0001,5.43,8.14,-2.71,36,LRCN + spatial + temporal aug. Compare vs 03 (8.53%).
+04_lrcn_augmentation,2026-05-05 16:19,LRCN (VGG16 frozen + LSTM) + Augmentation,True,True,False,True,15,0.3,0.8,1.2,00-15,16-19,256,8,0.0001,5.43,8.14,-2.71,36,LRCN + spatial + temporal aug. Compare vs 03 (8.14%).
