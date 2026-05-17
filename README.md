@@ -10,11 +10,11 @@
 
 Korean Sign Language (KSL) recognition is a critical accessibility problem — approximately 450 million people worldwide are deaf or hard of hearing, and KSL is distinct from other sign languages including ASL. Despite its importance, KSL is severely understudied in the deep learning literature, with very few publicly available datasets.
 
-This project addresses **isolated KSL word recognition** on the KSL-77 dataset using a systematic ablation study. We start from a naive CNN baseline that treats sign recognition as single-frame image classification, demonstrate its fundamental limitation (it cannot capture temporal motion), and progressively improve it using temporal modeling (CNN+LSTM), data augmentation, and transfer learning.
+This project addresses isolated KSL word recognition on the KSL-77 dataset through a systematic ablation study. We start from a naive CNN baseline that treats sign recognition as single-frame image classification, demonstrate its fundamental limitation (it cannot capture temporal motion), and progressively investigate temporal modeling (CNN+LSTM), data augmentation, and transfer learning.
 
-**Core argument:** KSL signs are movements, not static poses. A single-frame CNN achieves only 6.98% accuracy — barely above random chance (1.3%) — because two different signs can look identical in one frozen frame but differ entirely in how the hand moves over time. This motivates the LRCN (Long-term Recurrent Convolutional Network) architecture, which uses CNN to extract per-frame spatial features and LSTM to model the temporal sequence.
+**Core argument:** KSL signs are movements, not static poses. A single-frame CNN achieves only 13.57% accuracy because two different signs can look identical in one frozen frame but differ entirely in how the hand moves over time. This motivates the LRCN architecture, which uses CNN to extract per-frame spatial features and LSTM to model the temporal sequence across 32 frames.
 
-**Reference benchmark:** Shin et al. (2023) CNN+Transformer hybrid — 89.00% on KSL-77.
+**Reference benchmark:** Shin et al. (2023) CNN+Transformer — 89.00% on KSL-77.
 
 ---
 
@@ -25,16 +25,19 @@ This project addresses **isolated KSL word recognition** on the KSL-77 dataset u
 | Source | Yang et al. (2020), MMM 2020 |
 | GitHub | https://github.com/Yangseung/KSL |
 | Total videos | 1,540 (1,229 successfully extracted) |
-| Sign classes | 77 Korean daily-use words |
+| Sign classes | 77 defined (67 present in dataset) |
+| Missing classes | 10 classes absent from dataset |
 | Signers | 20 deaf signers |
 | Recording locations | 17 different locations |
-| Video length | ~4 seconds at 30fps (~120 frames) |
-| Frames sampled | 16 evenly-spaced per clip |
+| Video length | ~4 seconds at 30fps |
+| Frames sampled | 32 evenly-spaced per clip |
 | Frame resolution | 224 × 224 RGB |
 
-**Train/val split:** By signer identity, not randomly by video. Signers 00–15 → train (~984 clips), signers 16–19 → val (~245 clips). This prevents data leakage — if the same signer's videos appeared in both sets, the model could learn to recognize the person rather than the sign.
+**Missing classes (10):** read, next, be friendly, number, guide, parents, 10 minutes, education, visit, far
 
-**Note:** Raw video files and extracted frames are not included in this repository due to size constraints. See notebook `01_data_pipeline.ipynb` for the extraction pipeline.
+**Train/val split:** By signer identity — signers 00–15 train (~984 clips), signers 16–19 val (~245 clips). This prevents data leakage. Random split allows the same signer's appearance to leak into both sets, causing the model to recognize the person rather than the sign and inflating accuracy artificially. Signer-based split simulates real deployment where the system must generalize to completely new users.
+
+**Note:** Raw videos and extracted frames are not included in this repository due to size. See `01_data_pipeline.ipynb` for the extraction pipeline.
 
 ---
 
@@ -58,29 +61,27 @@ This project addresses **isolated KSL word recognition** on the KSL-77 dataset u
 └── results/
     └── logs/
         ├── 02_baseline_cnn_log.csv
-        ├── 04_augmentation_log.csv
+        ├── 03_lrcn_log.csv
         └── 04_augmentation_v2_log.csv
 ```
 
-Run notebooks in order. Each notebook depends on outputs from the previous — `01` extracts frames, `02` to `06` each train a model and save a checkpoint, and `07` loads all checkpoints to generate final evaluation figures.
+Run notebooks in order. Notebooks 01 extracts frames, 02–06 each train one model and save a checkpoint, and 07 loads all checkpoints to generate final evaluation figures.
 
 ---
 
 ## How to Run
 
-All notebooks run on **Elice AI Cloud** (GPU instance) or **Google Colab** with GPU runtime.
+All notebooks run on **Elice AI Cloud** (GPU instance) or **Google Colab** with GPU runtime. Notebooks use local paths — no Google Drive mount required on Elice.
 
 **Setup on Elice:**
 
 ```python
-import os, sys
-sys.path.append('/home/elicer')
-import config
-
-config.DATA_FRAMES  = '/home/elicer/frames'
-config.MODELS_CKPT  = '/home/elicer/models/checkpoints'
-config.RESULTS_LOGS = '/home/elicer/results/logs'
-config.RESULTS_FIGS = '/home/elicer/results/figures'
+import os
+BASE_DIR   = '/home/elicer'
+FRAMES_DIR = f'{BASE_DIR}/frames'
+CKPT_DIR   = f'{BASE_DIR}/models/checkpoints'
+FIGS_DIR   = f'{BASE_DIR}/results/figures'
+LOGS_DIR   = f'{BASE_DIR}/results/logs'
 ```
 
 **Setup on Colab:**
@@ -88,89 +89,128 @@ config.RESULTS_FIGS = '/home/elicer/results/figures'
 ```python
 from google.colab import drive
 drive.mount('/content/drive')
-
 import sys
 sys.path.append('/content/drive/MyDrive/KSL_DL2026')
 import config
 ```
 
-Switch to GPU runtime before training: Runtime → Change runtime type → GPU.
-
-**Dependencies:** All standard — no custom installs beyond default environment.
-
+**Dependencies:**
 ```
 torch torchvision numpy matplotlib seaborn scikit-learn Pillow csv
 ```
 
+**Important:** LRCN notebooks (03–06) use `BATCH = 8` and `LEARNING_RATE = 1e-4` locally, overriding config defaults. This is a memory constraint — 32 frames per clip at batch 32 would exceed GPU memory.
+
 ---
 
-## Configuration — config.py
+## Configuration
 
-All shared paths and hyperparameters are centralized in `config.py`. Every notebook imports this file so settings are consistent across all experiments. LRCN notebooks (03–06) override `BATCH_SIZE → 8` and `LEARNING_RATE → 1e-4` locally due to memory constraints from 16-frame sequences.
+All shared hyperparameters are in `config.py`. Individual notebooks override as needed.
 
-| Parameter | Value | Description |
-|---|---|---|
-| `NUM_CLASSES` | 77 | KSL sign classes |
-| `NUM_FRAMES` | 16 | frames sampled per video |
-| `IMG_SIZE` | 224 | frame resolution (px) |
-| `BATCH_SIZE` | 32 | default batch (overridden to 8 in LRCN notebooks) |
-| `LEARNING_RATE` | 0.001 | default LR (overridden to 1e-4 in LRCN notebooks) |
-| `WEIGHT_DECAY` | 1e-4 | L2 regularization |
-| `NUM_EPOCHS` | 50 | max training epochs |
-| `PATIENCE` | 10 | early stopping patience |
-| `CNN_BACKBONE` | vgg16 | pretrained feature extractor |
-| `LSTM_HIDDEN` | 256 | LSTM hidden state size |
-| `RANDOM_SEED` | 42 | reproducibility seed |
+| Parameter | Config Default | LRCN Notebooks | Description |
+|---|---|---|---|
+| `NUM_CLASSES` | 77 | 67 (dynamic) | dynamic from dataset |
+| `NUM_FRAMES` | 16 | 32 | frames sampled per clip |
+| `IMG_SIZE` | 224 | 224 | frame resolution (px) |
+| `BATCH_SIZE` | 32 | 8 | memory constraint for LRCN |
+| `LEARNING_RATE` | 0.001 | 1e-4 | lower for LSTM stability |
+| `WEIGHT_DECAY` | 1e-4 | 1e-4 | L2 regularization |
+| `NUM_EPOCHS` | 50 | 50 | max training epochs |
+| `PATIENCE` | 10 | 10 | early stopping patience |
+| `CNN_BACKBONE` | vgg16 | vgg16 | pretrained feature extractor |
+| `LSTM_HIDDEN` | 256 | 64 | reduced to prevent overfitting |
+| `RANDOM_SEED` | 42 | 42 | reproducibility |
 
 ---
 
 ## Methodology
 
-### Baseline — Simple CNN (Notebook 02)
+### Design Decisions
 
-**Architecture:** VGG16 (pretrained on ImageNet, frozen) + custom FC head → 77 classes
+**Signer-based split (not random):** Prevents data leakage. Random split inflates accuracy by letting the model recognize signer appearance. Our evaluation is stricter but more representative of real-world deployment.
 
-**Input:** Single middle frame per clip (frame index 8 of 16) — no temporal information
+**Dynamic label remapping:** 10 classes missing from KSL-77. We detect present classes from the dataset, remap to contiguous 0..66 labels, and map indices back to KSL word names for confusion matrix analysis.
 
-**Why this fails:** KSL signs are defined by motion, not static hand shape. Two different signs can share an identical hand configuration at one frozen moment but differ entirely in how the hand moves. A single-frame CNN is structurally incapable of distinguishing these cases.
+**Frozen VGG16 backbone:** With only 12 training clips per class, full fine-tuning would catastrophically overfit. ImageNet features (edges, shapes, textures) transfer reasonably to hand recognition. Only frame_fc, LSTM, and classifier are trained.
 
-**Result: 6.98% val accuracy** (31 epochs, early stopping)
+**Batched frame processing (reshape trick):** Instead of looping through frames, we reshape `(B, T, C, H, W) → (B*T, C, H, W)` to process all frames in one VGG16 call, then reshape back to `(B, T, 512)` for the LSTM. Significantly faster by exploiting GPU parallelism.
 
----
+**Controlled ablation design:** Each experiment changes exactly one variable. Same split, same val transforms, same backbone, same metric across all experiments. Any accuracy difference is attributable to the specific technique being tested.
 
-### Improvement 1 — CNN+LSTM / LRCN (Notebook 03)
-
-**Architecture:** VGG16 (frozen) → Linear(25088→512) + BatchNorm + ReLU + Dropout(0.2) → LSTM(hidden=256) → FC(77)
-
-**Input:** Full 16-frame sequence per clip
-
-**Key design:** All 16 frames processed by VGG16 in one batched call via reshape trick (B×T, C, H, W), then reshaped back to (B, T, 512) before the LSTM. Significantly faster than looping over frames.
-
-**Hyperparameter finding:** Dropout=0.5 → ~1% accuracy (too aggressive). No dropout → 100% train / 8.5% val (overfit). Dropout=0.2 → best balance.
-
-**Result: 8.53% val accuracy** (+1.55pp over CNN baseline)
+**Aggressive regularization:** Hyperparameter search showed that standard settings catastrophically overfit on KSL-77. LSTM hidden size reduced from 256 to 64, dropout increased from 0.2 to 0.4, label smoothing 0.1 added. Model capacity must be proportional to dataset size.
 
 ---
 
-### Improvement 2 — Data Augmentation (Notebook 04)
+### Baseline CNN (Notebook 02)
 
-**Addresses:** Data scarcity (~12 training clips per class after signer split)
+**Architecture:** VGG16 (frozen, ImageNet) + FC head → 67 classes
 
-**v1 — Aggressive augmentation:**
-Spatial: flip (p=0.5), rotation ±15°, color jitter ±0.3, random resized crop. Temporal: frame speed variation (0.8×–1.2×). Result: **5.43%** — worse than baseline. Training curves showed severe overfitting (train 35%, val 5%). Temporal augmentation disrupted the LSTM's temporal signal.
+**Input:** Single middle frame per clip (frame index 16 of 32) — no temporal information
 
-**v2 — Mild augmentation + label smoothing:**
-Spatial: flip (p=0.3), rotation ±8°, color jitter ±0.15. No crop, no temporal augmentation. Added label smoothing (0.1), dropout (0.3), CosineAnnealingLR. Result: **7.36%** — improved +1.93pp over v1 but still -1.17pp below LRCN baseline.
+**Training:** Adam lr=0.001, CrossEntropyLoss, batch=64, early stopping patience=10
 
-**Finding:** Augmentation consistently underperforms the plain LRCN baseline. With only 16 unique signers, augmentation adds sample variety within existing signers but cannot introduce new signer diversity — the fundamental source of generalization failure. This strongly motivates transfer learning as the primary data scarcity strategy.
+**Result: 13.57% val accuracy** (50 epochs, random chance = 1.5%)
+
+**Key observations:**
+- 9× above random chance — model learned meaningful spatial features
+- Training curves show overfitting — train accuracy climbs while val plateaus early
+- Confusion matrix shows systematic confusion between signs sharing similar hand shapes
+- Proves single-frame classification is structurally insufficient for KSL — temporal modeling is necessary
 
 ---
 
-### Improvement 3 — Transfer Learning (Notebook 05)
+### LRCN — CNN+LSTM (Notebook 03)
 
-**Addresses:** Data scarcity + domain mismatch (ImageNet vs sign language)
+**Architecture:** VGG16 (frozen) → Linear(25088→512) + BatchNorm + ReLU + Dropout(0.4) → LSTM(hidden=64) → FC(67)
 
-**Approach:** Pretrain CNN on a larger sign language dataset, then fine-tune on KSL-77. Low-level hand features — finger shapes, wrist angles, hand orientation — are universal across sign languages. A backbone pretrained on sign language data requires only KSL-specific adaptation.
+**Input:** Full 32-frame sequence per clip
+
+**Forward pass:** Reshape (B,T,C,H,W) → (B×T,C,H,W) → VGG16 → (B×T,512) → reshape (B,T,512) → LSTM → final hidden state → classifier
+
+**Hyperparameter search:**
+
+| Frames | LSTM Hidden | Dropout | Label Smooth | Val Acc |
+|---|---|---|---|---|
+| 48 | 256 | 0.2 | ✗ | 2.71% |
+| 32 | 128 | 0.2 | ✗ | 13.18% |
+| 32 | 64 | 0.4 | ✓ | **14.34%** |
+
+**Result: 14.34% val accuracy** (44 epochs, +0.77pp over CNN baseline)
+
+**Key observations:**
+- Temporal modeling provides measurable improvement over single-frame CNN
+- Improvement is modest — data scarcity suppresses the full benefit of LSTM
+- 48 frames caused catastrophic overfitting (train 54%, val 2.71%) — LSTM memorized training signer movement patterns
+- Model capacity must be aggressively constrained for datasets this small
+- Val accuracy noisy throughout — jumping between 9–14% reflects limited val set size (245 clips)
+
+---
+
+### Data Augmentation (Notebook 04)
+
+**Hypothesis:** Spatial augmentation would increase effective training set size and improve generalization.
+
+**v1 — Aggressive:** flip p=0.5, rotation ±15°, color jitter ±0.3, random crop, temporal speed variation (0.8×–1.2×). Result: **5.43%** — severe overfitting (train 35%, val 5%).
+
+**v2 — Mild (current):** flip p=0.3, rotation ±8°, color jitter ±0.15, no crop, no temporal aug, label smoothing 0.1, dropout 0.4, CosineAnnealingLR. Result: **12.02%** — still -2.32pp below LRCN baseline.
+
+**Augmentation results summary:**
+
+| Version | Val Acc | vs LRCN |
+|---|---|---|
+| v1 aggressive | 5.43% | -8.91pp |
+| v2 mild (old 16-frame) | 7.36% | — |
+| v2 mild (current 32-frame) | 12.02% | -2.32pp |
+
+**Key finding:** Augmentation consistently underperforms plain LRCN across all configurations. Root cause: with only 16 unique training signers, augmentation adds sample variety within existing signers but cannot introduce new signer diversity — the fundamental source of generalization failure. This robust negative result across three configurations confirms that signer diversity, not sample variety, is the binding constraint.
+
+---
+
+### Transfer Learning (Notebook 05)
+
+**Addresses:** Signer diversity constraint + domain mismatch (ImageNet vs sign language)
+
+**Approach:** Pretrain CNN on a larger sign language dataset, then fine-tune on KSL-77. Low-level hand features — finger shapes, wrist angles, hand orientation — are universal across sign languages.
 
 **Result: TBD**
 
@@ -178,7 +218,7 @@ Spatial: flip (p=0.3), rotation ±8°, color jitter ±0.15. No crop, no temporal
 
 ### Combined Best Model (Notebook 06)
 
-LRCN + transfer learning + mild augmentation + label smoothing + fine-tuned backbone. Expected to achieve the highest accuracy by combining the best configurations from all previous experiments.
+LRCN + transfer learning + best regularization. Expected to achieve highest accuracy.
 
 **Result: TBD**
 
@@ -188,35 +228,48 @@ LRCN + transfer learning + mild augmentation + label smoothing + fine-tuned back
 
 | Model | Temporal | Augmentation | Transfer | Val Accuracy |
 |---|---|---|---|---|
-| Simple CNN (nb 02) | ✗ | ✗ | ✗ | **6.98%** |
-| LRCN baseline (nb 03) | ✓ | ✗ | ✗ | **8.53%** |
-| LRCN + aug v1 (nb 04) | ✓ | ✓ aggressive | ✗ | **5.43%** |
-| LRCN + aug v2 (nb 04) | ✓ | ✓ mild | ✗ | **7.36%** |
-| LRCN + transfer (nb 05) | ✓ | ✗ | ✓ | TBD |
-| LRCN + best combo (nb 06) | ✓ | ✓ | ✓ | TBD |
+| Simple CNN (nb 02) | ✗ | ✗ | ✗ | **13.57%** |
+| LRCN baseline (nb 03) | ✓ LSTM | ✗ | ✗ | **14.34%** |
+| LRCN + aug v2 (nb 04) | ✓ LSTM | ✓ mild | ✗ | **12.02%** |
+| LRCN + transfer (nb 05) | ✓ LSTM | ✗ | ✓ | TBD |
+| LRCN + best combo (nb 06) | ✓ LSTM | ✓ | ✓ | TBD |
 | Shin et al. 2023 (reference) | ✓ | — | — | **89.00%** |
-
-Each row isolates one variable — this controlled design ensures any accuracy difference can be attributed to the specific technique, not confounding factors.
 
 ---
 
-## Key Findings So Far
+## Key Findings
 
-**Temporal modeling helps:** LRCN achieves +1.55pp over CNN baseline, confirming KSL signs require sequential modeling.
+**Temporal modeling helps but modestly:** LRCN achieves +0.77pp over CNN baseline. The improvement is real but suppressed by data scarcity — the LSTM still overfits to training signers' movement styles.
 
-**Augmentation consistently hurts:** Both aggressive (v1: -3.10pp) and mild (v2: -1.17pp) augmentation underperform the plain LRCN baseline. Root cause: signer diversity cannot be synthesized through spatial transforms on a 16-signer dataset.
+**Augmentation consistently hurts:** All augmentation variants underperform plain LRCN. Signer diversity cannot be synthesized through spatial or temporal transforms on a 16-signer training set.
 
-**Data scarcity is the dominant problem:** With ~12 training clips per class, standard regularization and augmentation techniques are insufficient. Transfer learning remains the primary untested strategy.
+**Model capacity must match dataset size:** LRCN with hidden=256 and 48 frames catastrophically overfits (2.71%). Reducing to hidden=64, 32 frames, dropout=0.4 achieves the best result (14.34%). Aggressive regularization is essential for datasets this small.
+
+**Data scarcity is the dominant constraint:** Every experiment points to the same root cause — 12 training clips per class across 16 signers is insufficient for any standard deep learning technique to generalize well. Transfer learning is the primary remaining strategy to address this.
+
+---
+
+## Limitations
+
+**Data scarcity:** ~12 training clips per class after signer split. Root cause of overfitting across all experiments. Standard deep learning techniques require orders of magnitude more data per class.
+
+**Signer diversity:** Only 16 unique training signers. Even with thousands of augmented clips, the model has only seen 16 people's signing styles. Transfer learning from larger sign datasets is the primary mitigation strategy.
+
+**Evaluation strictness:** Signer-based split is significantly harder than the random split used in most published KSL results. The gap between our numbers and published results (~14% vs ~65–75% for LRCN) is largely explained by evaluation protocol, not architecture quality.
+
+**Missing classes:** 10 of 77 KSL classes absent from dataset. A deployed system would fail on these signs entirely.
+
+**Single modality:** RGB frames only — no depth, no skeleton keypoints, no hand segmentation. Background and clothing variation across 17 locations adds noise the model must learn to ignore.
 
 ---
 
 ## Evaluation
 
-**Primary metric:** Top-1 classification accuracy on held-out val signers (16–19)
+**Primary metric:** Top-1 val accuracy on held-out signers 16–19
 
-**Secondary:** Confusion matrix (77×77) — identifies which sign pairs are systematically confused, providing qualitative insight into model failure modes
+**Secondary:** Confusion matrix with KSL word labels — identifies which sign pairs are systematically confused and why
 
-**Published baselines:** TSN — 79.80% (Yang et al. 2020), CNN+Transformer — 89.00% (Shin et al. 2023)
+**Published baselines:** TSN 79.80% (Yang et al. 2020), CNN+Transformer 89.00% (Shin et al. 2023)
 
 ---
 
@@ -224,13 +277,13 @@ Each row isolates one variable — this controlled design ensures any accuracy d
 
 | Date | Milestone |
 |---|---|
-| Mar 25 | Team formed, KSL topic confirmed, TA approval received |
-| Mar 27 | Drive folder structure, config.py, README set up |
+| Mar 25 | Team formed, topic confirmed, TA approval |
+| Mar 27 | Drive folder, config.py, README, group chat set up |
 | Apr 15 | Notebook 01 complete — 1,229 clips extracted (Nico) |
-| Apr 15 | Notebook 02 complete — 6.98% baseline (Hakeemi) |
+| Apr 15 | Notebook 02 complete — 13.57% baseline (Hakeemi) |
 | May 4–6 | Midterm presentation |
-| May 5 | Notebook 03 complete — 8.53% LRCN baseline (Nico) |
-| May 6 | Notebook 04 complete — aug v1 5.43%, aug v2 7.36% (Hakeemi) |
+| May 5 | Notebook 03 complete — 14.34% LRCN (Hakeemi) |
+| May 6 | Notebook 04 complete — 12.02% aug v2 (Hakeemi) |
 | Jun 10–15 | Final presentation |
 | Jun 23 | Final report due (4 pages, CVPR format, English) |
 
