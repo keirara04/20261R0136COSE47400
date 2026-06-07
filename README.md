@@ -1,6 +1,6 @@
 # KSL-77 Sign Language Recognition
 **COSE474 Deep Learning · Korea University · Spring 2026**  
-Group 11 — Hakeemi · Nico · 고동우
+Group 11: Hakeemi · Nico · 고동우
 
 ---
 
