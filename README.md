@@ -17,9 +17,9 @@ This repo documents our full ablation, from a naive single-frame CNN baseline al
 | Simple CNN (nb02) | 13.57% | single middle frame, no temporal info |
 | LRCN baseline (nb03) | 14.34% | 32 frames, VGG16 + LSTM |
 | LRCN + Augmentation (nb04) | 12.02% | augmentation hurts — see findings |
-| LRCN + WLASL Transfer (nb05) | **23.26%** | pretrain on ASL, fine-tune on KSL |
+| LRCN + WLASL Transfer (nb05) | 23.26% | pretrain on ASL, fine-tune on KSL |
 | Combined best (nb06) | **25.19%** | grid search over TL + aug + hyperparams |
-| Pose-LRCN (nb07) | **25.00%** | MediaPipe keypoints replace RGB pixels |
+| Pose-LRCN (nb07) | 25.00% | MediaPipe keypoints replace RGB pixels |
 | Pose-LRCN + Aug (nb08) | 16.00% | augmentation hurts here too |
 | Shin et al. 2023 (reference) | 89.00% | CNN+Transformer, different eval protocol |
 
